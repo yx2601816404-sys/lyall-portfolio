@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LYALL — 视觉日志</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Space+Grotesk:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@200;300;400;600&display=swap" rel="stylesheet">
+
+<!-- Lenis Smooth Scroll -->
+<script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+<!-- GSAP + ScrollTrigger -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --text-primary: #e8e4e0;
+  --text-secondary: #6b6762;
+  --text-dim: #3a3835;
+  --accent: #c4a882;
+  --serif: 'Cormorant Garamond', 'Noto Serif SC', serif;
+  --sans: 'Space Grotesk', 'Noto Serif SC', sans-serif;
+  --chinese: 'Noto Serif SC', serif;
+  --ease-quart: cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+html { scrollbar-width: thin; scrollbar-color: var(--text-dim) var(--bg); }
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--sans);
+  overflow-x: hidden;
+  cursor: none;
+}
+::selection { background: var(--accent); color: var(--bg); }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--text-dim); border-radius: 2px; }
+
+/* Film grain */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9000; opacity: 0.35;
+}
+
+/* ═══════ CURSOR ═══════ */
+.cursor-dot {
+  position: fixed; width: 6px; height: 6px;
+  background: var(--text-primary);
+  border-radius: 50%; pointer-events: none; z-index: 10001;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: difference;
+}
+.cursor-ring {
+  position: fixed; width: 36px; height: 36px;
+  border: 1px solid rgba(232,228,224,0.25);
+  border-radius: 50%; pointer-events: none; z-index: 10000;
+  transform: translate(-50%, -50%);
+  transition: width 0.5s var(--ease-quart), height 0.5s var(--ease-quart),
+              border-color 0.4s, background 0.4s;
+}
+.cursor-ring.hovering {
+  width: 80px; height: 80px;
+  background: rgba(196,168,130,0.06);
+  border-color: var(--accent);
+}
+.cursor-ring.hovering::after {
+  content: 'VIEW';
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--sans);
+  font-size: 9px; letter-spacing: 3px;
+  color: var(--accent);
+}
+
+/* ═══════ PRELOADER ═══════ */
+.preloader {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 20px;
+}
+.preloader-text {
+  font-family: var(--serif);
+  font-size: clamp(28px, 5vw, 60px);
+  font-weight: 300; letter-spacing: 0.3em;
+  overflow: hidden;
+}
+.preloader-text span {
+  display: inline-block;
+  transform: translateY(110%); opacity: 0;
+}
+.preloader-line { width: 0; height: 1px; background: var(--accent); }
+.preloader-sub {
+  font-family: var(--chinese); font-size: 12px; font-weight: 200;
+  letter-spacing: 0.5em; color: var(--text-secondary); opacity: 0;
+}
+
+/* ═══════ PROGRESS BAR ═══════ */
+.progress-bar {
+  position: fixed; top: 0; left: 0; width: 100%; height: 2px;
+  background: var(--accent); z-index: 9500;
+  transform-origin: left; transform: scaleX(0);
+}
+
+/* ═══════ ACT I: HERO — Sticky fade-away (Flayks style) ═══════ */
+.hero-wrapper {
+  height: 200vh; /* Extra scroll room for fade */
+  position: relative;
+}
+.hero {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.hero-content {
+  text-align: center;
+  will-change: transform, opacity;
+}
+.hero-title {
+  font-family: var(--serif);
+  font-size: clamp(60px, 13vw, 200px);
+  font-weight: 300;
+  letter-spacing: 0.15em;
+  line-height: 0.85;
+  visibility: hidden;
+}
+.hero-title .char {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(70px) rotate(4deg);
+}
+.hero-subtitle {
+  font-family: var(--chinese); font-weight: 200;
+  font-size: clamp(12px, 1.4vw, 16px);
+  letter-spacing: 0.8em;
+  color: var(--text-secondary);
+  margin-top: 24px;
+  opacity: 0;
+}
+.hero-scroll-hint {
+  position: absolute; bottom: 5vh;
+  left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px; opacity: 0;
+}
+.hero-scroll-hint span {
+  font-size: 9px; letter-spacing: 4px;
+  color: var(--text-dim); text-transform: uppercase;
+}
+.scroll-line {
+  width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  animation: scrollPulse 2s ease-in-out infinite;
+}
+@keyframes scrollPulse {
+  0%,100% { opacity: 0.3; transform: scaleY(0.5); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+
+/* ═══════ ACT II: OPENING — Full-bleed clip-path reveals ═══════ */
+.opening {
+  position: relative;
+  padding: 5vh 0;
+}
+.reveal-block {
+  position: relative;
+  height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.reveal-block .reveal-img {
+  position: absolute; inset: 5vh 8vw;
+  overflow: hidden;
+}
+.reveal-block .reveal-img img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+}
+.reveal-block .reveal-caption {
+  position: absolute;
+  bottom: 8vh; left: 8vw;
+  z-index: 2;
+  opacity: 0;
+  transform: translateY(20px);
+}
+.reveal-caption .cn {
+  font-family: var(--chinese); font-weight: 200;
+  font-size: clamp(24px, 4vw, 56px);
+  letter-spacing: 0.3em;
+  mix-blend-mode: difference;
+}
+.reveal-caption .en {
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(12px, 1.2vw, 18px);
+  color: var(--text-secondary);
+  letter-spacing: 0.15em;
+  margin-top: 6px;
+}
+.reveal-caption .num {
+  font-family: var(--sans); font-size: 10px;
+  color: var(--text-dim); letter-spacing: 3px;
+  margin-top: 10px;
+}
+
+/* ═══════ SECTION DIVIDER — Typography accent ═══════ */
+.section-divider {
+  padding: 18vh 8vw;
+  position: relative;
+  overflow: hidden;
+}
+.section-divider .big-text {
+  font-family: var(--chinese); font-weight: 200;
+  font-size: clamp(36px, 6vw, 80px);
+  letter-spacing: 0.25em;
+  line-height: 1.4;
+  color: var(--text-primary);
+  opacity: 0;
+}
+.section-divider .small-text {
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(12px, 1.2vw, 18px);
+  color: var(--text-dim);
+  letter-spacing: 0.15em;
+  margin-top: 16px;
+  opacity: 0;
+}
+.section-divider .divider-line {
+  width: 0; height: 1px;
+  background: var(--accent);
+  margin-top: 24px;
+}
+
+/* ═══════ ACT III: HORIZONTAL SCROLL GALLERY ═══════ */
+.horizontal-section {
+  overflow: hidden;
+  position: relative;
+}
+.horizontal-track {
+  display: flex;
+  align-items: center;
+  gap: 4vw;
+  padding: 0 8vw;
+  height: 100vh;
+  will-change: transform;
+}
+.h-card {
+  flex-shrink: 0;
+  width: 38vw;
+  height: 65vh;
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  cursor: none;
+}
+.h-card .card-inner {
+  width: 100%; height: 100%;
+  position: relative; overflow: hidden;
+  transition: transform 0.6s var(--ease-quart);
+}
+.h-card img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 1.2s var(--ease-quart), filter 0.8s var(--ease-quart);
+}
+.h-card:hover img {
+  transform: scale(1.06);
+}
+.h-card .h-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 50%, rgba(10,10,10,0.65) 100%);
+  opacity: 0;
+  transition: opacity 0.6s var(--ease-quart);
+  display: flex; align-items: flex-end;
+  padding: 24px;
+}
+.h-card:hover .h-overlay { opacity: 1; }
+.h-overlay .cn {
+  font-family: var(--chinese); font-weight: 300;
+  font-size: clamp(14px, 1.2vw, 20px);
+  letter-spacing: 0.2em;
+  transform: translateY(12px);
+  transition: transform 0.5s var(--ease-quart);
+}
+.h-card:hover .h-overlay .cn { transform: translateY(0); }
+.h-overlay .en {
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(10px, 0.8vw, 13px);
+  color: var(--text-secondary);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+  transform: translateY(12px);
+  transition: transform 0.6s var(--ease-quart) 0.05s;
+}
+.h-card:hover .h-overlay .en { transform: translateY(0); }
+
+/* ═══════ ACT IV: EDITORIAL GRID ═══════ */
+.editorial-intro {
+  padding: 15vh 0 8vh;
+  text-align: center;
+}
+.editorial-intro h2 {
+  font-family: var(--chinese); font-weight: 200;
+  font-size: clamp(13px, 1.6vw, 18px);
+  letter-spacing: 0.8em;
+  color: var(--text-secondary);
+  opacity: 0;
+}
+.editorial-intro .intro-line {
+  width: 50px; height: 1px;
+  background: var(--accent);
+  margin: 14px auto 0;
+  transform: scaleX(0);
+}
+
+.grid-gallery {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 0 4vw;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2vw;
+}
+.grid-item {
+  position: relative; overflow: hidden;
+  border-radius: 2px; cursor: none;
+  opacity: 0;
+  transform: translateY(60px);
+  will-change: transform, opacity;
+}
+.grid-item .item-inner {
+  width: 100%; height: 100%;
+  position: relative; overflow: hidden;
+  transition: transform 0.6s var(--ease-quart);
+}
+.grid-item img {
+  display: block; width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform 1.2s var(--ease-quart), filter 0.8s var(--ease-quart);
+}
+.grid-item:hover img {
+  transform: scale(1.05);
+  filter: brightness(1.08);
+}
+.grid-item .g-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(10,10,10,0.7) 100%);
+  opacity: 0;
+  transition: opacity 0.5s var(--ease-quart);
+  display: flex; align-items: flex-end;
+  padding: 18px;
+}
+.grid-item:hover .g-overlay { opacity: 1; }
+.g-overlay .cn {
+  font-family: var(--chinese); font-weight: 300;
+  font-size: clamp(13px, 1.1vw, 17px);
+  letter-spacing: 0.2em;
+  transform: translateY(10px);
+  transition: transform 0.5s var(--ease-quart);
+}
+.grid-item:hover .g-overlay .cn { transform: translateY(0); }
+.g-overlay .en {
+  font-family: var(--serif); font-style: italic;
+  font-size: clamp(10px, 0.7vw, 12px);
+  color: var(--text-secondary);
+  margin-top: 3px;
+  transform: translateY(10px);
+  transition: transform 0.6s var(--ease-quart) 0.04s;
+}
+.grid-item:hover .g-overlay .en { transform: translateY(0); }
+
+/* Grid positions */
+.gi1  { grid-column: 1 / 7;  aspect-ratio: 3/2; }
+.gi2  { grid-column: 7 / 13; aspect-ratio: 3/2; }
+.gi3  { grid-column: 1 / 5;  aspect-ratio: 2/3; }
+.gi4  { grid-column: 5 / 9;  aspect-ratio: 2/3; }
+.gi5  { grid-column: 9 / 13; aspect-ratio: 2/3; }
+.gi6  { grid-column: 1 / 8;  aspect-ratio: 16/9; }
+.gi7  { grid-column: 8 / 13; aspect-ratio: 4/3; }
+
+/* ═══════ LIGHTBOX ═══════ */
+.lightbox {
+  position: fixed; inset: 0; z-index: 8000;
+  background: rgba(10,10,10,0.96);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.5s var(--ease-quart);
+  backdrop-filter: blur(20px);
+}
+.lightbox.active { opacity: 1; pointer-events: all; }
+.lightbox img {
+  max-width: 88vw; max-height: 85vh;
+  object-fit: contain;
+  transform: scale(0.92) translateY(10px);
+  opacity: 0;
+  transition: transform 0.7s var(--ease-quart), opacity 0.5s ease;
+}
+.lightbox.active img { transform: scale(1) translateY(0); opacity: 1; }
+.lightbox-close {
+  position: absolute; top: 28px; right: 28px;
+  width: 48px; height: 48px;
+  background: none; border: 1px solid var(--text-dim);
+  color: var(--text-primary); font-size: 16px;
+  cursor: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.4s var(--ease-quart), transform 0.4s var(--ease-quart);
+}
+.lightbox-close:hover {
+  border-color: var(--accent);
+  transform: rotate(90deg);
+}
+.lightbox-caption {
+  position: absolute; bottom: 36px; left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.4s ease 0.25s;
+}
+.lightbox.active .lightbox-caption { opacity: 1; }
+.lightbox-caption .cn {
+  font-family: var(--chinese); font-size: 16px;
+  font-weight: 300; letter-spacing: 0.4em;
+}
+.lightbox-caption .en {
+  font-family: var(--serif); font-size: 12px;
+  font-style: italic; color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* ═══════ FOOTER ═══════ */
+.footer {
+  padding: 18vh 4vw 8vh;
+  text-align: center;
+  border-top: 1px solid var(--text-dim);
+  margin-top: 18vh;
+}
+.footer-brand {
+  font-family: var(--serif);
+  font-size: clamp(36px, 6vw, 72px);
+  font-weight: 300; letter-spacing: 0.2em;
+  display: inline-block;
+  transition: transform 0.4s var(--ease-quart);
+}
+.footer-sub {
+  font-family: var(--chinese); font-size: 11px;
+  font-weight: 200; letter-spacing: 0.6em;
+  color: var(--text-dim); margin: 16px 0 28px;
+}
+.footer-line {
+  width: 40px; height: 1px;
+  background: var(--accent);
+  margin: 0 auto 20px;
+}
+.footer-copy {
+  font-size: 10px; color: var(--text-dim); letter-spacing: 2px;
+}
+
+@media (max-width: 768px) {
+  .h-card { width: 75vw; height: 55vh; }
+  .grid-gallery { grid-template-columns: 1fr 1fr; gap: 3vw; }
+  .gi1,.gi2,.gi3,.gi4,.gi5,.gi6,.gi7 {
+    grid-column: auto; aspect-ratio: 3/2;
+  }
+  .reveal-block .reveal-img { inset: 8vh 5vw; }
+  body { cursor: auto; }
+  .cursor-dot, .cursor-ring { display: none; }
+  .section-divider { padding: 12vh 5vw; }
+}
+</style>
+</head>
+<body>
+
+<!-- Progress bar -->
+<div class="progress-bar"></div>
+
+<!-- Cursor -->
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
+
+<!-- Preloader -->
+<div class="preloader">
+  <div class="preloader-text">
+    <span>L</span><span>Y</span><span>A</span><span>L</span><span>L</span>
+  </div>
+  <div class="preloader-line"></div>
+  <div class="preloader-sub">视觉日志 · Visual Journal</div>
+</div>
+
+<!-- ═══ ACT I: HERO (Sticky fade-away) ═══ -->
+<div class="hero-wrapper">
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">LYALL</h1>
+      <div class="hero-subtitle">光影之间 · Between Light & Shadow</div>
+    </div>
+    <div class="hero-scroll-hint">
+      <span>SCROLL</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+</div>
+
+<!-- ═══ ACT II: OPENING — Clip-path reveals (3 hero images) ═══ -->
+<section class="opening">
+
+  <div class="reveal-block" data-img="images/10.jpg" data-cn="远山薄雾" data-en="Distant Mist">
+    <div class="reveal-img">
+      <img src="images/10.jpg" alt="">
+    </div>
+    <div class="reveal-caption">
+      <div class="cn">远山薄雾</div>
+      <div class="en">Distant Mist</div>
+      <div class="num">No. 10</div>
+    </div>
+  </div>
+
+  <div class="reveal-block" data-img="images/05.jpg" data-cn="夜行列车" data-en="Night Train">
+    <div class="reveal-img">
+      <img src="images/05.jpg" alt="">
+    </div>
+    <div class="reveal-caption">
+      <div class="cn">夜行列车</div>
+      <div class="en">Night Train</div>
+      <div class="num">No. 05</div>
+    </div>
+  </div>
+
+  <div class="reveal-block" data-img="images/04.jpg" data-cn="倒影城市" data-en="Reflected City">
+    <div class="reveal-img">
+      <img src="images/04.jpg" alt="">
+    </div>
+    <div class="reveal-caption">
+      <div class="cn">倒影城市</div>
+      <div class="en">Reflected City</div>
+      <div class="num">No. 04</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ═══ DIVIDER — Typography moment ═══ -->
+<section class="section-divider">
+  <div class="big-text">行走 · 凝视 · 记录</div>
+  <div class="small-text">Walk, Gaze, Record</div>
+  <div class="divider-line"></div>
+</section>
+
+<!-- ═══ ACT III: HORIZONTAL SCROLL GALLERY (7 images) ═══ -->
+<section class="horizontal-section">
+  <div class="horizontal-track">
+
+    <div class="h-card" data-img="images/01.jpg" data-cn="孤灯" data-en="Solitary Light">
+      <div class="card-inner"><img src="images/01.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">孤灯</div><div class="en">Solitary Light</div></div></div></div>
+    </div>
+
+    <div class="h-card" data-img="images/03.jpg" data-cn="旧城几何" data-en="Urban Geometry">
+      <div class="card-inner"><img src="images/03.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">旧城几何</div><div class="en">Urban Geometry</div></div></div></div>
+    </div>
+
+    <div class="h-card" data-img="images/07.jpg" data-cn="穿行者" data-en="Passerby">
+      <div class="card-inner"><img src="images/07.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">穿行者</div><div class="en">Passerby</div></div></div></div>
+    </div>
+
+    <div class="h-card" data-img="images/09.jpg" data-cn="落日长廊" data-en="Sunset Corridor">
+      <div class="card-inner"><img src="images/09.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">落日长廊</div><div class="en">Sunset Corridor</div></div></div></div>
+    </div>
+
+    <div class="h-card" data-img="images/11.jpg" data-cn="层叠" data-en="Layers">
+      <div class="card-inner"><img src="images/11.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">层叠</div><div class="en">Layers</div></div></div></div>
+    </div>
+
+    <div class="h-card" data-img="images/13.jpg" data-cn="角落光影" data-en="Corner Light">
+      <div class="card-inner"><img src="images/13.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">角落光影</div><div class="en">Corner Light</div></div></div></div>
+    </div>
+
+    <div class="h-card" data-img="images/16.jpg" data-cn="阶梯" data-en="Stairway">
+      <div class="card-inner"><img src="images/16.jpg" alt="">
+      <div class="h-overlay"><div><div class="cn">阶梯</div><div class="en">Stairway</div></div></div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═══ DIVIDER 2 ═══ -->
+<section class="section-divider">
+  <div class="big-text">静物与光</div>
+  <div class="small-text">Still Life & Light</div>
+  <div class="divider-line"></div>
+</section>
+
+<!-- ═══ ACT IV: EDITORIAL GRID (7 remaining images) ═══ -->
+<section class="editorial-intro">
+  <h2>余 像</h2>
+  <div class="intro-line"></div>
+</section>
+
+<section class="grid-gallery">
+
+  <div class="grid-item gi1" data-img="images/02.jpg" data-cn="路标" data-en="Waymark">
+    <div class="item-inner"><img src="images/02.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">路标</div><div class="en">Waymark</div></div></div></div>
+  </div>
+
+  <div class="grid-item gi2" data-img="images/08.jpg" data-cn="晨间" data-en="Morning Hour">
+    <div class="item-inner"><img src="images/08.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">晨间</div><div class="en">Morning Hour</div></div></div></div>
+  </div>
+
+  <div class="grid-item gi3" data-img="images/06.jpg" data-cn="静巷" data-en="Silent Alley">
+    <div class="item-inner"><img src="images/06.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">静巷</div><div class="en">Silent Alley</div></div></div></div>
+  </div>
+
+  <div class="grid-item gi4" data-img="images/14.jpg" data-cn="窗格" data-en="Window Frame">
+    <div class="item-inner"><img src="images/14.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">窗格</div><div class="en">Window Frame</div></div></div></div>
+  </div>
+
+  <div class="grid-item gi5" data-img="images/15.jpg" data-cn="微光" data-en="Glimmer">
+    <div class="item-inner"><img src="images/15.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">微光</div><div class="en">Glimmer</div></div></div></div>
+  </div>
+
+  <div class="grid-item gi6" data-img="images/12.jpg" data-cn="平行线" data-en="Parallel Lines">
+    <div class="item-inner"><img src="images/12.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">平行线</div><div class="en">Parallel Lines</div></div></div></div>
+  </div>
+
+  <div class="grid-item gi7" data-img="images/17.jpg" data-cn="归途" data-en="Homeward">
+    <div class="item-inner"><img src="images/17.jpg" alt="">
+    <div class="g-overlay"><div><div class="cn">归途</div><div class="en">Homeward</div></div></div></div>
+  </div>
+
+</section>
+
+<!-- Lightbox -->
+<div class="lightbox">
+  <img src="" alt="">
+  <button class="lightbox-close">✕</button>
+  <div class="lightbox-caption">
+    <div class="cn"></div>
+    <div class="en"></div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-brand magnetic">LYALL</div>
+  <div class="footer-sub">摄影 · Photography</div>
+  <div class="footer-line"></div>
+  <div class="footer-copy">© 2026 LYALL. All rights reserved.</div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+// LENIS — Smooth scroll with inertia
+// ═══════════════════════════════════════════════
+const lenis = new Lenis({
+  lerp: 0.09,
+  smoothWheel: true,
+  wheelMultiplier: 0.85,
+});
+lenis.on('scroll', ScrollTrigger.update);
+gsap.ticker.add((time) => lenis.raf(time * 1000));
+gsap.ticker.lagSmoothing(0);
+
+// Quartic easing — THE easing used by award-winning sites
+const quartEase = 'cubic-bezier(0.76, 0, 0.24, 1)';
+
+// ═══════════════════════════════════════════════
+// CURSOR
+// ═══════════════════════════════════════════════
+const cursorDot = document.querySelector('.cursor-dot');
+const cursorRing = document.querySelector('.cursor-ring');
+let mx = 0, my = 0, dx = 0, dy = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+(function cursorLoop() {
+  dx += (mx - dx) * 0.15;
+  dy += (my - dy) * 0.15;
+  rx += (mx - rx) * 0.07;
+  ry += (my - ry) * 0.07;
+  cursorDot.style.left = dx + 'px';
+  cursorDot.style.top = dy + 'px';
+  cursorRing.style.left = rx + 'px';
+  cursorRing.style.top = ry + 'px';
+  requestAnimationFrame(cursorLoop);
+})();
+
+// Hover states for all clickable images
+document.querySelectorAll('.h-card, .grid-item, .reveal-block').forEach(el => {
+  el.addEventListener('mouseenter', () => cursorRing.classList.add('hovering'));
+  el.addEventListener('mouseleave', () => cursorRing.classList.remove('hovering'));
+});
+
+// ═══════════════════════════════════════════════
+// PRELOADER
+// ═══════════════════════════════════════════════
+function runPreloader() {
+  const tl = gsap.timeline();
+  tl.to('.preloader-text span', {
+    y: 0, opacity: 1, duration: 0.6,
+    stagger: 0.07, ease: 'power3.out'
+  })
+  .to('.preloader-line', { width: 80, duration: 0.8, ease: 'power2.inOut' }, '-=0.3')
+  .to('.preloader-sub', { opacity: 1, duration: 0.5 }, '-=0.4')
+  .to('.preloader', {
+    yPercent: -100, duration: 1,
+    ease: 'power3.inOut', delay: 0.4,
+    onComplete: () => {
+      document.querySelector('.preloader').style.display = 'none';
+      revealHero();
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ACT I: HERO — Sticky fade-away
+// ═══════════════════════════════════════════════
+function revealHero() {
+  const title = document.querySelector('.hero-title');
+  const text = title.textContent;
+  title.innerHTML = '';
+  text.split('').forEach(c => {
+    const s = document.createElement('span');
+    s.className = 'char';
+    s.textContent = c;
+    title.appendChild(s);
+  });
+  title.style.visibility = 'visible';
+
+  const tl = gsap.timeline();
+  tl.to('.hero-title .char', {
+    y: 0, opacity: 1, rotation: 0,
+    duration: 1.1, stagger: 0.06, ease: 'power3.out'
+  })
+  .to('.hero-subtitle', { opacity: 1, duration: 0.8 }, '-=0.6')
+  .to('.hero-scroll-hint', { opacity: 1, duration: 0.6 }, '-=0.3');
+
+  // Sticky hero fade: as user scrolls through hero-wrapper's extra height,
+  // the hero content shrinks, fades, and sinks
+  gsap.to('.hero-content', {
+    scale: 0.88,
+    opacity: 0,
+    yPercent: 8,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: '.hero-wrapper',
+      start: 'top top',
+      end: 'bottom top',
+      scrub: true,
+    }
+  });
+  gsap.to('.hero-scroll-hint', {
+    opacity: 0,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: '.hero-wrapper',
+      start: '10% top',
+      end: '30% top',
+      scrub: true,
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ACT II: CLIP-PATH REVEALS
+// ═══════════════════════════════════════════════
+document.querySelectorAll('.reveal-block').forEach((block, i) => {
+  const img = block.querySelector('.reveal-img img');
+  const caption = block.querySelector('.reveal-caption');
+  const directions = [
+    // Alternate reveal directions for variety
+    ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'],      // Left to right
+    ['inset(0 0 0 100%)', 'inset(0 0 0 0%)'],        // Right to left
+    ['inset(100% 0 0 0)', 'inset(0% 0 0 0)'],        // Bottom to top
+  ];
+  const [from, to] = directions[i % 3];
+
+  gsap.fromTo(img,
+    { clipPath: from },
+    {
+      clipPath: to,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: block,
+        start: 'top 75%',
+        end: 'top 15%',
+        scrub: 0.6,
+      }
+    }
+  );
+
+  gsap.to(caption, {
+    opacity: 1, y: 0,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: block,
+      start: 'top 40%',
+      end: 'top 15%',
+      scrub: true,
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════
+// SECTION DIVIDERS — Text reveal
+// ═══════════════════════════════════════════════
+document.querySelectorAll('.section-divider').forEach(div => {
+  gsap.to(div.querySelector('.big-text'), {
+    opacity: 1, ease: 'none',
+    scrollTrigger: { trigger: div, start: 'top 75%', end: 'top 45%', scrub: true }
+  });
+  gsap.to(div.querySelector('.small-text'), {
+    opacity: 1, ease: 'none',
+    scrollTrigger: { trigger: div, start: 'top 65%', end: 'top 40%', scrub: true }
+  });
+  gsap.to(div.querySelector('.divider-line'), {
+    width: 80, ease: 'none',
+    scrollTrigger: { trigger: div, start: 'top 60%', end: 'top 35%', scrub: true }
+  });
+});
+
+// ═══════════════════════════════════════════════
+// ACT III: HORIZONTAL SCROLL
+// Vertical scroll → horizontal movement, section pins in place
+// ═══════════════════════════════════════════════
+const hTrack = document.querySelector('.horizontal-track');
+const hSection = document.querySelector('.horizontal-section');
+
+if (hTrack && hSection) {
+  const getScrollAmount = () => hTrack.scrollWidth - window.innerWidth;
+
+  gsap.to(hTrack, {
+    x: () => -getScrollAmount(),
+    ease: 'none',
+    scrollTrigger: {
+      trigger: hSection,
+      start: 'top top',
+      end: () => '+=' + getScrollAmount(),
+      pin: true,
+      scrub: 0.8,
+      invalidateOnRefresh: true,
+    }
+  });
+
+  // Parallax within each horizontal card — images shift as cards move
+  document.querySelectorAll('.h-card').forEach(card => {
+    gsap.to(card.querySelector('img'), {
+      xPercent: -12,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: hSection,
+        start: 'top top',
+        end: () => '+=' + getScrollAmount(),
+        scrub: true,
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════
+// ACT IV: EDITORIAL GRID — Scroll-scrub reveal
+// ═══════════════════════════════════════════════
+gsap.to('.editorial-intro h2', {
+  opacity: 1, ease: 'none',
+  scrollTrigger: { trigger: '.editorial-intro', start: 'top 80%', end: 'top 50%', scrub: true }
+});
+gsap.to('.editorial-intro .intro-line', {
+  scaleX: 1, ease: 'none',
+  scrollTrigger: { trigger: '.editorial-intro', start: 'top 70%', end: 'top 45%', scrub: true }
+});
+
+document.querySelectorAll('.grid-item').forEach(item => {
+  gsap.to(item, {
+    opacity: 1, y: 0, ease: 'none',
+    scrollTrigger: {
+      trigger: item,
+      start: 'top 88%',
+      end: 'top 55%',
+      scrub: 0.6,
+    }
+  });
+
+  // Inner parallax
+  gsap.to(item.querySelector('img'), {
+    yPercent: 8,
+    ease: 'none',
+    scrollTrigger: {
+      trigger: item,
+      start: 'top bottom',
+      end: 'bottom top',
+      scrub: true,
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════
+// SCROLL VELOCITY → SKEW (physical weight feel)
+// When user scrolls fast, images tilt slightly
+// ═══════════════════════════════════════════════
+let currentSkew = 0;
+let targetSkew = 0;
+
+lenis.on('scroll', ({ velocity }) => {
+  targetSkew = Math.max(-3, Math.min(3, velocity * 0.03));
+});
+
+function updateSkew() {
+  currentSkew += (targetSkew - currentSkew) * 0.06;
+  targetSkew *= 0.95; // Dampen
+
+  if (Math.abs(currentSkew) > 0.01) {
+    document.querySelectorAll('.h-card .card-inner, .grid-item .item-inner').forEach(el => {
+      el.style.transform = `skewY(${currentSkew}deg)`;
+    });
+  } else {
+    document.querySelectorAll('.h-card .card-inner, .grid-item .item-inner').forEach(el => {
+      el.style.transform = '';
+    });
+  }
+  requestAnimationFrame(updateSkew);
+}
+updateSkew();
+
+// ═══════════════════════════════════════════════
+// 3D TILT — on .card-inner / .item-inner
+// ═══════════════════════════════════════════════
+document.querySelectorAll('.h-card, .grid-item').forEach(item => {
+  const inner = item.querySelector('.card-inner') || item.querySelector('.item-inner');
+  if (!inner) return;
+  item.style.perspective = '800px';
+
+  let tX = 0, tY = 0, gX = 0, gY = 0, hovered = false, frame = null;
+
+  function loop() {
+    tX += (gX - tX) * 0.07;
+    tY += (gY - tY) * 0.07;
+
+    // Combine tilt with any existing skew
+    const skew = currentSkew;
+    inner.style.transform = `skewY(${skew}deg) rotateY(${tX}deg) rotateX(${tY}deg)`;
+
+    if (hovered || Math.abs(gX - tX) > 0.01 || Math.abs(gY - tY) > 0.01) {
+      frame = requestAnimationFrame(loop);
+    } else {
+      inner.style.transform = '';
+      frame = null;
+    }
+  }
+
+  item.addEventListener('mouseenter', () => { hovered = true; if (!frame) frame = requestAnimationFrame(loop); });
+  item.addEventListener('mousemove', e => {
+    const r = item.getBoundingClientRect();
+    gX = ((e.clientX - r.left) / r.width - 0.5) * 4;
+    gY = -((e.clientY - r.top) / r.height - 0.5) * 4;
+  });
+  item.addEventListener('mouseleave', () => { hovered = false; gX = 0; gY = 0; if (!frame) frame = requestAnimationFrame(loop); });
+});
+
+// ═══════════════════════════════════════════════
+// PROGRESS BAR
+// ═══════════════════════════════════════════════
+gsap.to('.progress-bar', {
+  scaleX: 1, ease: 'none',
+  scrollTrigger: { trigger: document.body, start: 'top top', end: 'bottom bottom', scrub: 0.3 }
+});
+
+// ═══════════════════════════════════════════════
+// FOOTER
+// ═══════════════════════════════════════════════
+gsap.from('.footer-brand', {
+  yPercent: 30, opacity: 0, ease: 'none',
+  scrollTrigger: { trigger: '.footer', start: 'top 85%', end: 'top 55%', scrub: true }
+});
+gsap.from('.footer-line', {
+  scaleX: 0, ease: 'none',
+  scrollTrigger: { trigger: '.footer', start: 'top 75%', end: 'top 50%', scrub: true }
+});
+
+// Magnetic
+document.querySelectorAll('.magnetic').forEach(el => {
+  el.addEventListener('mousemove', e => {
+    const r = el.getBoundingClientRect();
+    el.style.transform = `translate(${(e.clientX-r.left-r.width/2)*0.25}px, ${(e.clientY-r.top-r.height/2)*0.25}px)`;
+  });
+  el.addEventListener('mouseleave', () => { el.style.transform = ''; });
+});
+
+// ═══════════════════════════════════════════════
+// LIGHTBOX
+// ═══════════════════════════════════════════════
+const lightbox = document.querySelector('.lightbox');
+const lbImg = lightbox.querySelector('img');
+const lbCn = lightbox.querySelector('.lightbox-caption .cn');
+const lbEn = lightbox.querySelector('.lightbox-caption .en');
+
+function openLightbox(src, cn, en) {
+  lbImg.src = src;
+  lbCn.textContent = cn;
+  lbEn.textContent = en;
+  lightbox.classList.add('active');
+  lenis.stop();
+}
+function closeLightbox() {
+  lightbox.classList.remove('active');
+  lenis.start();
+}
+
+document.querySelectorAll('.h-card, .grid-item, .reveal-block').forEach(el => {
+  el.addEventListener('click', () => {
+    openLightbox(el.dataset.img, el.dataset.cn, el.dataset.en);
+  });
+});
+lightbox.querySelector('.lightbox-close').addEventListener('click', closeLightbox);
+lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+window.addEventListener('load', runPreloader);
+</script>
+</body>
+</html>
