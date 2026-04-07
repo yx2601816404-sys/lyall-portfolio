@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="no-js">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -111,6 +111,25 @@
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ═══════ JS FAILURE FALLBACK ═══════ */
+/* html starts with .no-js; JS removes it immediately.
+   If JS never runs, all content becomes visible via these rules. */
+.no-js .preloader { display: none !important; }
+.no-js .hero-title { visibility: visible !important; }
+.no-js .hero-title .char { opacity: 1 !important; transform: none !important; }
+.no-js .hero-subtitle { opacity: 1 !important; }
+.no-js .hero-scroll-hint { opacity: 1 !important; }
+.no-js .reveal-block .reveal-img img { clip-path: inset(0 0 0 0) !important; }
+.no-js .reveal-caption { opacity: 1 !important; transform: none !important; }
+.no-js .section-divider .big-text { opacity: 1 !important; }
+.no-js .section-divider .small-text { opacity: 1 !important; }
+.no-js .section-divider .divider-line { width: 80px !important; }
+.no-js .editorial-intro h2 { opacity: 1 !important; }
+.no-js .editorial-intro .intro-line { transform: scaleX(1) !important; }
+.no-js .grid-item { opacity: 1 !important; transform: none !important; }
+.no-js .h-card .h-overlay { opacity: 1 !important; }
+.no-js .grid-item .g-overlay { opacity: 1 !important; }
 
 :root {
   --bg: #0a0a0a;
@@ -772,8 +791,12 @@ body::after {
 </footer>
 
 <script>
-// JS loaded successfully — cancel CSS fallback on preloader
+// Mark JS as working — removes .no-js fallback styles
+document.documentElement.classList.remove('no-js');
 document.querySelector('.preloader').classList.add('js-active');
+
+// Wrap everything in try-catch: if ANY library fails, show content anyway
+try {
 
 // ═══════════════════════════════════════════════
 // LENIS — Smooth scroll with inertia
@@ -1144,6 +1167,14 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbo
 // INIT
 // ═══════════════════════════════════════════════
 window.addEventListener('load', runPreloader);
+
+} catch (e) {
+  // If any JS library fails, force all content visible
+  console.error('Animation init failed:', e);
+  document.documentElement.classList.add('no-js');
+  var p = document.querySelector('.preloader');
+  if (p) p.style.display = 'none';
+}
 </script>
 </body>
 </html>
